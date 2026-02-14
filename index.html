@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ポケモン戦闘パーティメモ</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎮 ポケモン戦闘パーティメモ</h1>
+            <p class="subtitle">6匹のパーティを記録して戦いに備えよう</p>
+        </header>
+
+        <div class="party-section">
+            <div id="partyFormContainer" class="party-form-container">
+                <!-- ポケモン入力フォームがここに表示されます -->
+            </div>
+
+            <div class="party-name-section">
+                <label for="partyNameInput">保存するパーティの名前：</label>
+                <input 
+                    type="text" 
+                    id="partyNameInput" 
+                    class="party-name-input" 
+                    placeholder="例：ランクマ対策パーティ"
+                >
+            </div>
+
+            <div class="button-group">
+                <button id="saveBtn" class="btn btn-save">パーティを保存</button>
+                <button id="resetBtn" class="btn btn-secondary">リセット</button>
+                <button id="exportBtn" class="btn btn-info">CSVダウンロード</button>
+                <button id="importBtn" class="btn btn-info">CSVアップロード</button>
+                <input type="file" id="csvFileInput" accept=".csv" style="display:none;">
+                <button id="clearAllBtn" class="btn btn-danger">すべてクリア</button>
+            </div>
+        </div>
+
+        <div id="savedPartiesSection" class="saved-parties-section" style="display:none;">
+            <h2>保存されたパーティ</h2>
+            <div id="savedPartiesList" class="saved-parties-list">
+                <!-- 保存されたパーティがここに表示されます -->
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
