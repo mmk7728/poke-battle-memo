@@ -110,6 +110,33 @@ header .subtitle {
     user-select: none;
 }
 
+.pokemon-number .number-and-name {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.pokemon-number .name-input {
+    font-size: 16px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+    min-width: 140px;
+}
+
+.pokemon-number .header-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.small-check {
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
 .pokemon-number:hover {
     color: #ff5252;
 }
@@ -297,6 +324,12 @@ header .subtitle {
     margin-bottom: 20px;
     color: #333;
     font-size: 22px;
+}
+
+.saved-party-remarks {
+    margin-top: 6px;
+    font-size: 13px;
+    color: #666;
 }
 
 .saved-parties-list {

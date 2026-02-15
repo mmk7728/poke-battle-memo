@@ -8,6 +8,7 @@ class Pokemon {
         this.terasType = '';
         this.notes = '';
         this.selected = false;
+        this.lead = false;
     }
 }
 
@@ -18,6 +19,9 @@ class PartyApp {
         this.savedParties = [];
         this.containerElement = document.getElementById('partyFormContainer');
         this.partyNameInput = document.getElementById('partyNameInput');
+        this.winCheckbox = document.getElementById('winCheckbox');
+        this.lossCheckbox = document.getElementById('lossCheckbox');
+        this.remarksInput = document.getElementById('remarksInput');
         this.saveBtn = document.getElementById('saveBtn');
         this.resetBtn = document.getElementById('resetBtn');
         this.clearAllBtn = document.getElementById('clearAllBtn');
@@ -53,21 +57,18 @@ class PartyApp {
 
         card.innerHTML = `
             <div class="pokemon-number" data-index="${index}">
-                <span><strong>#${index + 1}</strong> ${pokemon.name ? pokemon.name : 'ポケモンを選択'}</span>
-                <span class="pokemon-toggle-icon">▼</span>
+                <div class="number-and-name">
+                    <strong>#${index + 1}</strong>
+                    <input type="text" id="name-${index}" class="name-input" placeholder="例：ピカチュウ" value="${pokemon.name}">
+                </div>
+                <div class="header-controls">
+                    <label class="small-check"><input type="checkbox" id="selected-${index}" ${pokemon.selected ? 'checked' : ''}> 選出</label>
+                    <label class="small-check"><input type="checkbox" id="lead-${index}" ${pokemon.lead ? 'checked' : ''}> 先発</label>
+                    <span class="pokemon-toggle-icon collapsed">▼</span>
+                </div>
             </div>
 
-            <div class="pokemon-details">
-                <div class="form-group">
-                    <label for="name-${index}">ポケモン名</label>
-                    <input 
-                        type="text" 
-                        id="name-${index}" 
-                        placeholder="例：ピカチュウ" 
-                        value="${pokemon.name}"
-                    >
-                </div>
-
+            <div class="pokemon-details collapsed">
                 <div class="form-group">
                     <label for="ability-${index}">特性</label>
                     <input 
@@ -148,6 +149,7 @@ class PartyApp {
                         <option value="あく" ${pokemon.terasType === 'あく' ? 'selected' : ''}>あく</option>
                         <option value="はがね" ${pokemon.terasType === 'はがね' ? 'selected' : ''}>はがね</option>
                         <option value="フェアリー" ${pokemon.terasType === 'フェアリー' ? 'selected' : ''}>フェアリー</option>
+                        <option value="ステラ" ${pokemon.terasType === 'ステラ' ? 'selected' : ''}>ステラ</option>
                     </select>
                 </div>
 
@@ -158,15 +160,6 @@ class PartyApp {
                         placeholder="例：物理受け, ステルスロック設定用 など"
                         rows="3"
                     >${pokemon.notes}</textarea>
-                </div>
-
-                <div class="selected-checkbox">
-                    <input 
-                        type="checkbox" 
-                        id="selected-${index}" 
-                        ${pokemon.selected ? 'checked' : ''}
-                    >
-                    <label for="selected-${index}">選出メンバー</label>
                 </div>
             </div>
         `;
@@ -191,9 +184,11 @@ class PartyApp {
         const terasSelect = card.querySelector(`#teras-${index}`);
         const notesInput = card.querySelector(`#notes-${index}`);
         const selectedCheckbox = card.querySelector(`#selected-${index}`);
+        const leadCheckbox = card.querySelector(`#lead-${index}`);
 
         // アコーディオン機能
-        titleElement.addEventListener('click', () => {
+        titleElement.addEventListener('click', (e) => {
+            // クリックがヘッダ内の入力要素から来た場合は無視
             detailsElement.classList.toggle('collapsed');
             toggleIcon.classList.toggle('collapsed');
         });
@@ -212,10 +207,7 @@ class PartyApp {
             this.party[index].terasType = terasSelect.value;
             this.party[index].notes = notesInput.value;
             this.party[index].selected = selectedCheckbox.checked;
-
-            // タイトルのポケモン名を更新
-            const titleSpan = titleElement.querySelector('span:first-child');
-            titleSpan.textContent = `#${index + 1} ${nameInput.value ? nameInput.value : 'ポケモンを選択'}`;
+            this.party[index].lead = leadCheckbox.checked;
 
             // 選出状態でカードの見た目を変更
             if (selectedCheckbox.checked) {
@@ -226,6 +218,7 @@ class PartyApp {
         };
 
         nameInput.addEventListener('input', updateParty);
+        nameInput.addEventListener('click', (e) => e.stopPropagation());
         abilityInput.addEventListener('input', updateParty);
         itemInput.addEventListener('input', updateParty);
         move1Input.addEventListener('input', updateParty);
@@ -234,7 +227,10 @@ class PartyApp {
         move4Input.addEventListener('input', updateParty);
         terasSelect.addEventListener('change', updateParty);
         notesInput.addEventListener('input', updateParty);
-        selectedCheckbox.addEventListener('change', updateParty);
+        selectedCheckbox.addEventListener('click', (e) => { e.stopPropagation(); updateParty(); });
+        if (leadCheckbox) {
+            leadCheckbox.addEventListener('click', (e) => { e.stopPropagation(); updateParty(); });
+        }
     }
 
     attachEventListeners() {
@@ -244,6 +240,14 @@ class PartyApp {
         this.exportBtn.addEventListener('click', () => this.exportToCSV());
         this.importBtn.addEventListener('click', () => this.csvFileInput.click());
         this.csvFileInput.addEventListener('change', (e) => this.importFromCSV(e));
+        if (this.winCheckbox && this.lossCheckbox) {
+            this.winCheckbox.addEventListener('change', () => {
+                if (this.winCheckbox.checked) this.lossCheckbox.checked = false;
+            });
+            this.lossCheckbox.addEventListener('change', () => {
+                if (this.lossCheckbox.checked) this.winCheckbox.checked = false;
+            });
+        }
     }
 
     saveParty() {
@@ -256,11 +260,16 @@ class PartyApp {
             return;
         }
 
+        const result = (this.winCheckbox && this.winCheckbox.checked) ? '勝' : ((this.lossCheckbox && this.lossCheckbox.checked) ? '敗' : '');
+        const remarks = (this.remarksInput && this.remarksInput.value) ? this.remarksInput.value.trim() : '';
+
         const savedParty = {
             id: Date.now(),
             name: partyName,
             party: JSON.parse(JSON.stringify(this.party)),
-            timestamp: new Date().toLocaleString('ja-JP')
+            timestamp: new Date().toLocaleString('ja-JP'),
+            result: result,
+            remarks: remarks
         };
 
         this.savedParties.unshift(savedParty);
@@ -271,6 +280,9 @@ class PartyApp {
         
         // 保存後にリセット
         this.partyNameInput.value = '';
+        if (this.winCheckbox) this.winCheckbox.checked = false;
+        if (this.lossCheckbox) this.lossCheckbox.checked = false;
+        if (this.remarksInput) this.remarksInput.value = '';
         this.resetForm();
     }
 
@@ -293,6 +305,8 @@ class PartyApp {
                 this.party[i].terasType = document.querySelector(`#teras-${i}`).value;
                 this.party[i].notes = document.querySelector(`#notes-${i}`).value;
                 this.party[i].selected = document.querySelector(`#selected-${i}`).checked;
+                const leadEl = document.querySelector(`#lead-${i}`);
+                this.party[i].lead = leadEl ? leadEl.checked : false;
             }
         }
     }
@@ -300,6 +314,9 @@ class PartyApp {
     resetForm() {
         this.party = Array(6).fill().map(() => new Pokemon());
         this.renderForm();
+        if (this.winCheckbox) this.winCheckbox.checked = false;
+        if (this.lossCheckbox) this.lossCheckbox.checked = false;
+        if (this.remarksInput) this.remarksInput.value = '';
     }
 
     clearAllParties() {
@@ -316,7 +333,10 @@ class PartyApp {
         if (!party) return;
 
         this.party = JSON.parse(JSON.stringify(party.party));
-        this.partyNameInput.value = '';
+        this.partyNameInput.value = party.name || '';
+        if (this.winCheckbox) this.winCheckbox.checked = (party.result === '勝');
+        if (this.lossCheckbox) this.lossCheckbox.checked = (party.result === '敗');
+        if (this.remarksInput) this.remarksInput.value = party.remarks || '';
         this.renderForm();
         window.scrollTo(0, 0);
     }
@@ -349,8 +369,9 @@ class PartyApp {
                 <div class="saved-party-item-name">
                     <h3>${this.escapeHtml(savedParty.name)}</h3>
                     <p class="saved-party-item-time">
-                        ${savedParty.timestamp} | ${memberNames}
+                        ${savedParty.timestamp} ${savedParty.result ? '| ' + this.escapeHtml(savedParty.result) : ''} | ${memberNames}
                     </p>
+                    ${savedParty.remarks ? `<p class="saved-party-remarks">${this.escapeHtml(savedParty.remarks)}</p>` : ''}
                 </div>
                 <div class="saved-party-buttons">
                     <button class="btn btn-small btn-load">読込</button>
@@ -371,7 +392,7 @@ class PartyApp {
     exportToCSV() {
         this.collectFormData();
 
-        let csv = 'パーティ名,ポケモン番号,ポケモン名,特性,持ち物,技1,技2,技3,技4,テラスタイプ,その他,選出有無\n';
+        let csv = 'パーティ名,ポケモン番号,ポケモン名,特性,持ち物,技1,技2,技3,技4,テラスタイプ,その他,選出有無,勝敗,備考\n';
 
         this.savedParties.forEach(party => {
             party.party.forEach((pokemon, index) => {
@@ -388,7 +409,9 @@ class PartyApp {
                     pokemon.moves[3],
                     pokemon.terasType,
                     pokemon.notes.replace(/\n/g, ' '),
-                    selected
+                    selected,
+                    party.result || '',
+                    (party.remarks || '').replace(/\n/g, ' ')
                 ];
                 csv += row.map(cell => `"${cell}"`).join(',') + '\n';
             });
@@ -454,27 +477,40 @@ class PartyApp {
                     if (pokemonIndex < 0 || pokemonIndex >= 6) continue;
 
                     if (!currentParties.has(partyName)) {
-                        currentParties.set(partyName, Array(6).fill().map(() => new Pokemon()));
+                        currentParties.set(partyName, {
+                            party: Array(6).fill().map(() => new Pokemon()),
+                            result: '',
+                            remarks: ''
+                        });
                     }
 
-                    const party = currentParties.get(partyName);
-                    party[pokemonIndex] = new Pokemon();
-                    party[pokemonIndex].name = cells[2];
-                    party[pokemonIndex].ability = cells[3];
-                    party[pokemonIndex].item = cells[4];
-                    party[pokemonIndex].moves = [cells[5], cells[6], cells[7], cells[8]];
-                    party[pokemonIndex].terasType = cells[9];
-                    party[pokemonIndex].notes = cells[10];
-                    party[pokemonIndex].selected = cells[11] === '○';
+                    const partyObj = currentParties.get(partyName);
+                    partyObj.party[pokemonIndex] = new Pokemon();
+                    partyObj.party[pokemonIndex].name = cells[2];
+                    partyObj.party[pokemonIndex].ability = cells[3];
+                    partyObj.party[pokemonIndex].item = cells[4];
+                    partyObj.party[pokemonIndex].moves = [cells[5], cells[6], cells[7], cells[8]];
+                    partyObj.party[pokemonIndex].terasType = cells[9];
+                    partyObj.party[pokemonIndex].notes = cells[10];
+                    partyObj.party[pokemonIndex].selected = cells[11] === '○';
+                    // optional party-level columns
+                    if (cells.length > 12) {
+                        partyObj.result = cells[12] || partyObj.result;
+                    }
+                    if (cells.length > 13) {
+                        partyObj.remarks = cells[13] || partyObj.remarks;
+                    }
                 }
 
                 // パーティを追加
-                currentParties.forEach((party, name) => {
+                currentParties.forEach((value, name) => {
                     const savedParty = {
                         id: Date.now() + Math.random(),
                         name: name,
-                        party: party,
-                        timestamp: new Date().toLocaleString('ja-JP')
+                        party: value.party,
+                        timestamp: new Date().toLocaleString('ja-JP'),
+                        result: value.result || '',
+                        remarks: value.remarks || ''
                     };
                     this.savedParties.unshift(savedParty);
                 });
