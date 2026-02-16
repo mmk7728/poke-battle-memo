@@ -1,558 +1,1046 @@
 // ポケモンデータ構造
 class Pokemon {
-    constructor() {
-        this.name = '';
-        this.ability = '';
-        this.item = '';
-        this.moves = ['', '', '', ''];
-        this.terasType = '';
-        this.notes = '';
-        this.selected = false;
-        this.lead = false;
-    }
+  constructor() {
+    this.name = "";
+    this.ability = "";
+    this.item = "";
+    this.moves = ["", "", "", ""];
+    this.terasType = "";
+    this.notes = "";
+    this.selected = false;
+    this.lead = false;
+    this.actualSpeed = 0; // 実数値の素早さ
+  }
 }
 
-// パーティ管理クラス
+// パーティ管理クラス - 独立した自分と相手のパーティを管理
 class PartyApp {
-    constructor() {
-        this.party = Array(6).fill().map(() => new Pokemon());
-        this.savedParties = [];
-        this.containerElement = document.getElementById('partyFormContainer');
-        this.partyNameInput = document.getElementById('partyNameInput');
-        this.winCheckbox = document.getElementById('winCheckbox');
-        this.lossCheckbox = document.getElementById('lossCheckbox');
-        this.remarksInput = document.getElementById('remarksInput');
-        this.saveBtn = document.getElementById('saveBtn');
-        this.resetBtn = document.getElementById('resetBtn');
-        this.clearAllBtn = document.getElementById('clearAllBtn');
-        this.exportBtn = document.getElementById('exportBtn');
-        this.importBtn = document.getElementById('importBtn');
-        this.csvFileInput = document.getElementById('csvFileInput');
-        this.savedPartiesSection = document.getElementById('savedPartiesSection');
-        this.savedPartiesList = document.getElementById('savedPartiesList');
+  constructor() {
+    // 自分と相手のパーティを分離
+    this.ownParty = Array(6)
+      .fill()
+      .map(() => new Pokemon());
+    this.opponentParty = Array(6)
+      .fill()
+      .map(() => new Pokemon());
+    this.currentPartyMode = "own";
+    this.battleOrder = []; // 対戦時の順番を保存
 
-        this.init();
+    this.savedOwnParties = [];
+    this.savedOpponentParties = [];
+
+    // DOM - 自分のパーティ
+    this.ownFormContainer = document.getElementById("ownPartyFormContainer");
+    this.ownNameInput = document.getElementById("ownPartyNameInput");
+    this.ownRemarksInput = document.getElementById("ownRemarksInput");
+    this.ownSaveBtn = document.getElementById("ownSaveBtn");
+    this.ownResetBtn = document.getElementById("ownResetBtn");
+    this.ownClearBtn = document.getElementById("ownClearAllBtn");
+    this.ownExportBtn = document.getElementById("ownExportBtn");
+    this.ownImportBtn = document.getElementById("ownImportBtn");
+    this.ownCsvInput = document.getElementById("ownCsvFileInput");
+
+    // DOM - 相手のパーティ
+    this.oppFormContainer = document.getElementById(
+      "opponentPartyFormContainer",
+    );
+    this.oppNameInput = document.getElementById("opponentPartyNameInput");
+    this.oppWinCheckbox = document.getElementById("oppWinCheckbox");
+    this.oppLossCheckbox = document.getElementById("oppLossCheckbox");
+    this.oppRemarksInput = document.getElementById("opponentRemarksInput");
+    this.oppSaveBtn = document.getElementById("opponentSaveBtn");
+    this.oppResetBtn = document.getElementById("opponentResetBtn");
+    this.oppClearBtn = document.getElementById("opponentClearAllBtn");
+    this.oppExportBtn = document.getElementById("oppExportBtn");
+    this.oppImportBtn = document.getElementById("oppImportBtn");
+    this.oppCsvInput = document.getElementById("oppCsvFileInput");
+
+    // DOM - 対戦中
+    this.battleBtn = document.getElementById("initBattleBtn");
+    this.speedContainer = document.getElementById("speedOrderContainer");
+
+    // DOM - 保存済み
+    this.savedSection = document.getElementById("savedPartiesSection");
+    this.ownSavedList = document.getElementById("ownSavedPartiesList");
+    this.oppSavedList = document.getElementById("opponentSavedPartiesList");
+
+    this.init();
+  }
+
+  init() {
+    this.loadSavedParties();
+    this.renderForms();
+    this.attachTabListeners();
+    this.attachEventListeners();
+  }
+
+  // タブ切り替え
+  attachTabListeners() {
+    document.querySelectorAll(".tab-button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const tab = btn.dataset.tab;
+        document
+          .querySelectorAll(".tab-button")
+          .forEach((b) => b.classList.remove("active"));
+        document
+          .querySelectorAll(".tab-content")
+          .forEach((c) => c.classList.remove("active"));
+        btn.classList.add("active");
+        const id = tab === "own" ? "ownPartyTab" : "opponentPartyTab";
+        document.getElementById(id).classList.add("active");
+      });
+    });
+
+    document.querySelectorAll(".saved-tab-button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const tab = btn.dataset.tab;
+        document
+          .querySelectorAll(".saved-tab-button")
+          .forEach((b) => b.classList.remove("active"));
+        document
+          .querySelectorAll(".saved-tab-content")
+          .forEach((c) => c.classList.remove("active"));
+        btn.classList.add("active");
+        const id =
+          tab === "own-saved"
+            ? "ownSavedPartiesTab"
+            : "opponentSavedPartiesTab";
+        document.getElementById(id).classList.add("active");
+      });
+    });
+  }
+
+  renderForms() {
+    this.renderOwnForm();
+    this.renderOppForm();
+  }
+
+  renderOwnForm() {
+    this.ownFormContainer.innerHTML = "";
+    this.ownFormContainer.className = "party-form-container own-party";
+    for (let i = 0; i < 6; i++) {
+      this.ownFormContainer.appendChild(this.createCard(i, "own"));
     }
+  }
 
-    init() {
-        this.loadSavedParties();
-        this.renderForm();
-        this.attachEventListeners();
+  renderOppForm() {
+    this.oppFormContainer.innerHTML = "";
+    this.oppFormContainer.className = "party-form-container opponent-party";
+    for (let i = 0; i < 6; i++) {
+      this.oppFormContainer.appendChild(this.createCard(i, "opponent"));
     }
+  }
 
-    renderForm() {
-        this.containerElement.innerHTML = '';
-        
-        for (let i = 0; i < 6; i++) {
-            const card = this.createPokemonCard(i);
-            this.containerElement.appendChild(card);
-        }
-    }
+  createCard(index, type) {
+    const party = type === "own" ? this.ownParty : this.opponentParty;
+    const poke = party[index];
+    const card = document.createElement("div");
+    card.className = `pokemon-card ${poke.selected ? "selected" : ""}`;
+    card.id = `card-${type}-${index}`;
 
-    createPokemonCard(index) {
-        const pokemon = this.party[index];
-        const card = document.createElement('div');
-        card.className = `pokemon-card ${pokemon.selected ? 'selected' : ''}`;
-        card.id = `pokemon-card-${index}`;
-
-        card.innerHTML = `
-            <div class="pokemon-number" data-index="${index}">
+    card.innerHTML = `
+            <div class="pokemon-number">
                 <div class="number-and-name">
                     <strong>#${index + 1}</strong>
-                    <input type="text" id="name-${index}" class="name-input" placeholder="例：ピカチュウ" value="${pokemon.name}">
+                    <input type="text" id="name-${type}-${index}" class="name-input" placeholder="ポケモン名" value="${poke.name}">
                 </div>
                 <div class="header-controls">
-                    <label class="small-check"><input type="checkbox" id="selected-${index}" ${pokemon.selected ? 'checked' : ''}> 選出</label>
-                    <label class="small-check"><input type="checkbox" id="lead-${index}" ${pokemon.lead ? 'checked' : ''}> 先発</label>
+                    <label class="small-check"><input type="checkbox" id="sel-${type}-${index}" ${poke.selected ? "checked" : ""}> 選出</label>
+                    <label class="small-check"><input type="checkbox" id="lead-${type}-${index}" ${poke.lead ? "checked" : ""}> 先発</label>
                     <span class="pokemon-toggle-icon collapsed">▼</span>
                 </div>
             </div>
-
             <div class="pokemon-details collapsed">
                 <div class="form-group">
-                    <label for="ability-${index}">特性</label>
-                    <input 
-                        type="text" 
-                        id="ability-${index}" 
-                        placeholder="例：静電気" 
-                        value="${pokemon.ability}"
-                    >
+                    <label>特性</label>
+                    <input type="text" id="abil-${type}-${index}" placeholder="特性" value="${poke.ability}">
                 </div>
-
                 <div class="form-group">
-                    <label for="item-${index}">持ち物</label>
-                    <input 
-                        type="text" 
-                        id="item-${index}" 
-                        placeholder="例：こだわりスカーフ" 
-                        value="${pokemon.item}"
-                    >
+                    <label>持ち物</label>
+                    <input type="text" id="item-${type}-${index}" placeholder="持ち物" value="${poke.item}">
                 </div>
-
+                <div class="form-group">
+                    <label>素早さ(実数値)</label>
+                    <input type="number" id="speed-${type}-${index}" placeholder="0" value="${poke.actualSpeed}">
+                </div>
                 <div class="form-group">
                     <label>技</label>
                     <div class="moves-group">
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <input 
-                                type="text" 
-                                id="move1-${index}" 
-                                placeholder="技1" 
-                                value="${pokemon.moves[0]}"
-                            >
-                        </div>
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <input 
-                                type="text" 
-                                id="move2-${index}" 
-                                placeholder="技2" 
-                                value="${pokemon.moves[1]}"
-                            >
-                        </div>
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <input 
-                                type="text" 
-                                id="move3-${index}" 
-                                placeholder="技3" 
-                                value="${pokemon.moves[2]}"
-                            >
-                        </div>
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <input 
-                                type="text" 
-                                id="move4-${index}" 
-                                placeholder="技4" 
-                                value="${pokemon.moves[3]}"
-                            >
-                        </div>
+                        ${[0, 1, 2, 3].map((m) => `<div class="form-group" style="margin-bottom:0"><input type="text" id="move${m + 1}-${type}-${index}" placeholder="技${m + 1}" value="${poke.moves[m]}"></div>`).join("")}
                     </div>
                 </div>
-
                 <div class="form-group">
-                    <label for="teras-${index}">テラスタイプ</label>
-                    <select id="teras-${index}">
-                        <option value="">選択してください</option>
-                        <option value="ノーマル" ${pokemon.terasType === 'ノーマル' ? 'selected' : ''}>ノーマル</option>
-                        <option value="ほのお" ${pokemon.terasType === 'ほのお' ? 'selected' : ''}>ほのお</option>
-                        <option value="みず" ${pokemon.terasType === 'みず' ? 'selected' : ''}>みず</option>
-                        <option value="でんき" ${pokemon.terasType === 'でんき' ? 'selected' : ''}>でんき</option>
-                        <option value="くさ" ${pokemon.terasType === 'くさ' ? 'selected' : ''}>くさ</option>
-                        <option value="こおり" ${pokemon.terasType === 'こおり' ? 'selected' : ''}>こおり</option>
-                        <option value="かくとう" ${pokemon.terasType === 'かくとう' ? 'selected' : ''}>かくとう</option>
-                        <option value="どく" ${pokemon.terasType === 'どく' ? 'selected' : ''}>どく</option>
-                        <option value="じめん" ${pokemon.terasType === 'じめん' ? 'selected' : ''}>じめん</option>
-                        <option value="ひこう" ${pokemon.terasType === 'ひこう' ? 'selected' : ''}>ひこう</option>
-                        <option value="エスパー" ${pokemon.terasType === 'エスパー' ? 'selected' : ''}>エスパー</option>
-                        <option value="むし" ${pokemon.terasType === 'むし' ? 'selected' : ''}>むし</option>
-                        <option value="いわ" ${pokemon.terasType === 'いわ' ? 'selected' : ''}>いわ</option>
-                        <option value="ゴースト" ${pokemon.terasType === 'ゴースト' ? 'selected' : ''}>ゴースト</option>
-                        <option value="ドラゴン" ${pokemon.terasType === 'ドラゴン' ? 'selected' : ''}>ドラゴン</option>
-                        <option value="あく" ${pokemon.terasType === 'あく' ? 'selected' : ''}>あく</option>
-                        <option value="はがね" ${pokemon.terasType === 'はがね' ? 'selected' : ''}>はがね</option>
-                        <option value="フェアリー" ${pokemon.terasType === 'フェアリー' ? 'selected' : ''}>フェアリー</option>
-                        <option value="ステラ" ${pokemon.terasType === 'ステラ' ? 'selected' : ''}>ステラ</option>
+                    <label>テラスタイプ</label>
+                    <select id="teras-${type}-${index}">
+                        <option value="">選択</option>
+                        <option value="ノーマル" ${poke.terasType === "ノーマル" ? "selected" : ""}>ノーマル</option>
+                        <option value="ほのお" ${poke.terasType === "ほのお" ? "selected" : ""}>ほのお</option>
+                        <option value="みず" ${poke.terasType === "みず" ? "selected" : ""}>みず</option>
+                        <option value="でんき" ${poke.terasType === "でんき" ? "selected" : ""}>でんき</option>
+                        <option value="くさ" ${poke.terasType === "くさ" ? "selected" : ""}>くさ</option>
+                        <option value="こおり" ${poke.terasType === "こおり" ? "selected" : ""}>こおり</option>
+                        <option value="かくとう" ${poke.terasType === "かくとう" ? "selected" : ""}>かくとう</option>
+                        <option value="どく" ${poke.terasType === "どく" ? "selected" : ""}>どく</option>
+                        <option value="じめん" ${poke.terasType === "じめん" ? "selected" : ""}>じめん</option>
+                        <option value="ひこう" ${poke.terasType === "ひこう" ? "selected" : ""}>ひこう</option>
+                        <option value="エスパー" ${poke.terasType === "エスパー" ? "selected" : ""}>エスパー</option>
+                        <option value="むし" ${poke.terasType === "むし" ? "selected" : ""}>むし</option>
+                        <option value="いわ" ${poke.terasType === "いわ" ? "selected" : ""}>いわ</option>
+                        <option value="ゴースト" ${poke.terasType === "ゴースト" ? "selected" : ""}>ゴースト</option>
+                        <option value="ドラゴン" ${poke.terasType === "ドラゴン" ? "selected" : ""}>ドラゴン</option>
+                        <option value="あく" ${poke.terasType === "あく" ? "selected" : ""}>あく</option>
+                        <option value="はがね" ${poke.terasType === "はがね" ? "selected" : ""}>はがね</option>
+                        <option value="フェアリー" ${poke.terasType === "フェアリー" ? "selected" : ""}>フェアリー</option>
+                        <option value="ステラ" ${poke.terasType === "ステラ" ? "selected" : ""}>ステラ</option>
                     </select>
                 </div>
-
                 <div class="form-group">
-                    <label for="notes-${index}">その他（役割・対策など）</label>
-                    <textarea 
-                        id="notes-${index}" 
-                        placeholder="例：物理受け, ステルスロック設定用 など"
-                        rows="3"
-                    >${pokemon.notes}</textarea>
+                    <label>その他</label>
+                    <textarea id="note-${type}-${index}" placeholder="役割など" rows="3">${poke.notes}</textarea>
                 </div>
             </div>
         `;
 
-        // イベントリスナーを付与
-        this.attachCardListeners(card, index);
-        return card;
-    }
+    // アコーディオン
+    const header = card.querySelector(".pokemon-number");
+    const details = card.querySelector(".pokemon-details");
+    const icon = card.querySelector(".pokemon-toggle-icon");
+    header.addEventListener("click", () => {
+      details.classList.toggle("collapsed");
+      icon.classList.toggle("collapsed");
+    });
 
-    attachCardListeners(card, index) {
-        const titleElement = card.querySelector('.pokemon-number');
-        const detailsElement = card.querySelector('.pokemon-details');
-        const toggleIcon = card.querySelector('.pokemon-toggle-icon');
-        
-        const nameInput = card.querySelector(`#name-${index}`);
-        const abilityInput = card.querySelector(`#ability-${index}`);
-        const itemInput = card.querySelector(`#item-${index}`);
-        const move1Input = card.querySelector(`#move1-${index}`);
-        const move2Input = card.querySelector(`#move2-${index}`);
-        const move3Input = card.querySelector(`#move3-${index}`);
-        const move4Input = card.querySelector(`#move4-${index}`);
-        const terasSelect = card.querySelector(`#teras-${index}`);
-        const notesInput = card.querySelector(`#notes-${index}`);
-        const selectedCheckbox = card.querySelector(`#selected-${index}`);
-        const leadCheckbox = card.querySelector(`#lead-${index}`);
+    // 入力監視
+    const updateParty = () => {
+      poke.name = card.querySelector(`#name-${type}-${index}`).value;
+      poke.ability = card.querySelector(`#abil-${type}-${index}`).value;
+      poke.item = card.querySelector(`#item-${type}-${index}`).value;
+      poke.moves = [0, 1, 2, 3].map(
+        (m) => card.querySelector(`#move${m + 1}-${type}-${index}`).value,
+      );
+      poke.terasType = card.querySelector(`#teras-${type}-${index}`).value;
+      poke.notes = card.querySelector(`#note-${type}-${index}`).value;
+      poke.selected = card.querySelector(`#sel-${type}-${index}`).checked;
+      poke.lead = card.querySelector(`#lead-${type}-${index}`).checked;
+      poke.actualSpeed =
+        parseInt(card.querySelector(`#speed-${type}-${index}`).value) || 0;
+      card.classList.toggle("selected", poke.selected);
+    };
 
-        // アコーディオン機能
-        titleElement.addEventListener('click', (e) => {
-            // クリックがヘッダ内の入力要素から来た場合は無視
-            detailsElement.classList.toggle('collapsed');
-            toggleIcon.classList.toggle('collapsed');
+    card.querySelectorAll("input, select, textarea").forEach((el) => {
+      el.addEventListener("change", updateParty);
+      el.addEventListener("input", updateParty);
+      if (el.type !== "checkbox") {
+        el.addEventListener("click", (e) => e.stopPropagation());
+      } else {
+        el.addEventListener("click", (e) => {
+          e.stopPropagation();
+          updateParty();
         });
+      }
+    });
 
-        // 入力値をpartyに反映
-        const updateParty = () => {
-            this.party[index].name = nameInput.value;
-            this.party[index].ability = abilityInput.value;
-            this.party[index].item = itemInput.value;
-            this.party[index].moves = [
-                move1Input.value,
-                move2Input.value,
-                move3Input.value,
-                move4Input.value
-            ];
-            this.party[index].terasType = terasSelect.value;
-            this.party[index].notes = notesInput.value;
-            this.party[index].selected = selectedCheckbox.checked;
-            this.party[index].lead = leadCheckbox.checked;
+    return card;
+  }
 
-            // 選出状態でカードの見た目を変更
-            if (selectedCheckbox.checked) {
-                card.classList.add('selected');
-            } else {
-                card.classList.remove('selected');
-            }
-        };
+  attachEventListeners() {
+    // 自分のパーティ
+    this.ownSaveBtn?.addEventListener("click", () => {
+      this.collectData("own");
+      this.savePartyData("own");
+    });
+    this.ownResetBtn?.addEventListener("click", () => this.resetParty("own"));
+    this.ownClearBtn?.addEventListener("click", () => this.clearAllData("own"));
+    this.ownExportBtn?.addEventListener("click", () => this.exportCSV("own"));
+    this.ownImportBtn?.addEventListener("click", () =>
+      this.ownCsvInput?.click(),
+    );
+    this.ownCsvInput?.addEventListener("change", (e) =>
+      this.importCSV(e, "own"),
+    );
 
-        nameInput.addEventListener('input', updateParty);
-        nameInput.addEventListener('click', (e) => e.stopPropagation());
-        abilityInput.addEventListener('input', updateParty);
-        itemInput.addEventListener('input', updateParty);
-        move1Input.addEventListener('input', updateParty);
-        move2Input.addEventListener('input', updateParty);
-        move3Input.addEventListener('input', updateParty);
-        move4Input.addEventListener('input', updateParty);
-        terasSelect.addEventListener('change', updateParty);
-        notesInput.addEventListener('input', updateParty);
-        selectedCheckbox.addEventListener('click', (e) => { e.stopPropagation(); updateParty(); });
-        if (leadCheckbox) {
-            leadCheckbox.addEventListener('click', (e) => { e.stopPropagation(); updateParty(); });
-        }
+    // 相手のパーティ
+    this.oppSaveBtn?.addEventListener("click", () => {
+      this.collectData("opponent");
+      this.savePartyData("opponent");
+    });
+    this.oppResetBtn?.addEventListener("click", () =>
+      this.resetParty("opponent"),
+    );
+    this.oppClearBtn?.addEventListener("click", () =>
+      this.clearAllData("opponent"),
+    );
+    this.oppExportBtn?.addEventListener("click", () =>
+      this.exportCSV("opponent"),
+    );
+    this.oppImportBtn?.addEventListener("click", () =>
+      this.oppCsvInput?.click(),
+    );
+    this.oppCsvInput?.addEventListener("change", (e) =>
+      this.importCSV(e, "opponent"),
+    );
+
+    if (this.oppWinCheckbox && this.oppLossCheckbox) {
+      this.oppWinCheckbox.addEventListener("change", () => {
+        if (this.oppWinCheckbox.checked) this.oppLossCheckbox.checked = false;
+      });
+      this.oppLossCheckbox.addEventListener("change", () => {
+        if (this.oppLossCheckbox.checked) this.oppWinCheckbox.checked = false;
+      });
     }
 
-    attachEventListeners() {
-        this.saveBtn.addEventListener('click', () => this.saveParty());
-        this.resetBtn.addEventListener('click', () => this.resetForm());
-        this.clearAllBtn.addEventListener('click', () => this.clearAllParties());
-        this.exportBtn.addEventListener('click', () => this.exportToCSV());
-        this.importBtn.addEventListener('click', () => this.csvFileInput.click());
-        this.csvFileInput.addEventListener('change', (e) => this.importFromCSV(e));
-        if (this.winCheckbox && this.lossCheckbox) {
-            this.winCheckbox.addEventListener('change', () => {
-                if (this.winCheckbox.checked) this.lossCheckbox.checked = false;
-            });
-            this.lossCheckbox.addEventListener('change', () => {
-                if (this.lossCheckbox.checked) this.winCheckbox.checked = false;
-            });
-        }
+    // 対戦
+    this.battleBtn?.addEventListener("click", () => this.startBattle());
+  }
+
+  collectData(type) {
+    const party = type === "own" ? this.ownParty : this.opponentParty;
+    for (let i = 0; i < 6; i++) {
+      const el = document.querySelector(`#name-${type}-${i}`);
+      if (el) {
+        party[i].name = el.value;
+        party[i].ability = document.querySelector(`#abil-${type}-${i}`).value;
+        party[i].item = document.querySelector(`#item-${type}-${i}`).value;
+        party[i].moves = [0, 1, 2, 3].map(
+          (m) => document.querySelector(`#move${m + 1}-${type}-${i}`).value,
+        );
+        party[i].terasType = document.querySelector(
+          `#teras-${type}-${i}`,
+        ).value;
+        party[i].notes = document.querySelector(`#note-${type}-${i}`).value;
+        party[i].selected = document.querySelector(`#sel-${type}-${i}`).checked;
+        party[i].lead = document.querySelector(`#lead-${type}-${i}`).checked;
+        party[i].actualSpeed =
+          parseInt(document.querySelector(`#speed-${type}-${i}`).value) || 0;
+      }
+    }
+  }
+
+  savePartyData(type) {
+    const name =
+      type === "own"
+        ? this.ownNameInput?.value.trim()
+        : this.oppNameInput?.value.trim();
+    if (!name) {
+      alert("パーティ名を入力してください");
+      return;
     }
 
-    saveParty() {
-        this.collectFormData();
-
-        const partyName = this.partyNameInput.value.trim();
-        if (!partyName) {
-            alert('パーティの名前を入力してください');
-            this.partyNameInput.focus();
-            return;
-        }
-
-        const result = (this.winCheckbox && this.winCheckbox.checked) ? '勝' : ((this.lossCheckbox && this.lossCheckbox.checked) ? '敗' : '');
-        const remarks = (this.remarksInput && this.remarksInput.value) ? this.remarksInput.value.trim() : '';
-
-        const savedParty = {
-            id: Date.now(),
-            name: partyName,
-            party: JSON.parse(JSON.stringify(this.party)),
-            timestamp: new Date().toLocaleString('ja-JP'),
-            result: result,
-            remarks: remarks
-        };
-
-        this.savedParties.unshift(savedParty);
-        this.saveToStorage();
-        this.renderSavedParties();
-
-        alert('パーティを保存しました！');
-        
-        // 保存後にリセット
-        this.partyNameInput.value = '';
-        if (this.winCheckbox) this.winCheckbox.checked = false;
-        if (this.lossCheckbox) this.lossCheckbox.checked = false;
-        if (this.remarksInput) this.remarksInput.value = '';
-        this.resetForm();
+    let result = "";
+    if (type === "opponent") {
+      result = this.oppWinCheckbox?.checked
+        ? "勝"
+        : this.oppLossCheckbox?.checked
+          ? "敗"
+          : "";
     }
 
-    collectFormData() {
-        for (let i = 0; i < 6; i++) {
-            const nameInput = document.querySelector(`#name-${i}`);
-            const abilityInput = document.querySelector(`#ability-${i}`);
-            const itemInput = document.querySelector(`#item-${i}`);
-            
-            if (nameInput) {
-                this.party[i].name = nameInput.value;
-                this.party[i].ability = abilityInput.value;
-                this.party[i].item = itemInput.value;
-                this.party[i].moves = [
-                    document.querySelector(`#move1-${i}`).value,
-                    document.querySelector(`#move2-${i}`).value,
-                    document.querySelector(`#move3-${i}`).value,
-                    document.querySelector(`#move4-${i}`).value
-                ];
-                this.party[i].terasType = document.querySelector(`#teras-${i}`).value;
-                this.party[i].notes = document.querySelector(`#notes-${i}`).value;
-                this.party[i].selected = document.querySelector(`#selected-${i}`).checked;
-                const leadEl = document.querySelector(`#lead-${i}`);
-                this.party[i].lead = leadEl ? leadEl.checked : false;
-            }
-        }
+    const remarks =
+      type === "own"
+        ? this.ownRemarksInput?.value.trim()
+        : this.oppRemarksInput?.value.trim();
+
+    // 対戦順序を保存（相手パーティの場合、party-form-containerの実際の順序を保存）
+    let battleOrder = [];
+    if (type === "opponent") {
+      const cards = this.oppFormContainer.querySelectorAll(".battle-pokemon");
+      cards.forEach((card) => {
+        // party-form-container に表示されているカードから情報を取得
+        const name = card.querySelector(".battle-pokemon-name")?.value || "";
+        const ability = card.querySelector(".battle-ability")?.value || "";
+        const item = card.querySelector(".battle-item")?.value || "";
+        const speed = parseInt(card.querySelector(".battle-speed")?.value) || 0;
+        const moves = Array.from(card.querySelectorAll(".battle-move")).map(
+          (m) => m.value,
+        );
+        const teras = card.querySelector(".battle-teras")?.value || "";
+        const notes = card.querySelector(".battle-notes")?.value || "";
+        const selected =
+          card.querySelector(".battle-sel-check")?.checked || false;
+        const lead = card.querySelector(".battle-lead-check")?.checked || false;
+
+        // type 情報を取得（id から抽出：battle-card-{type}-{idx}）
+        const cardId = card.id;
+        const pokeType = cardId.includes("battle-card-own")
+          ? "own"
+          : "opponent";
+
+        battleOrder.push({
+          name,
+          ability,
+          item,
+          actualSpeed: speed,
+          moves,
+          terasType: teras,
+          notes,
+          selected,
+          lead,
+          type: pokeType,
+        });
+      });
     }
 
-    resetForm() {
-        this.party = Array(6).fill().map(() => new Pokemon());
-        this.renderForm();
-        if (this.winCheckbox) this.winCheckbox.checked = false;
-        if (this.lossCheckbox) this.lossCheckbox.checked = false;
-        if (this.remarksInput) this.remarksInput.value = '';
+    const saved = {
+      id: Date.now(),
+      name,
+      party: JSON.parse(
+        JSON.stringify(type === "own" ? this.ownParty : this.opponentParty),
+      ),
+      timestamp: new Date().toLocaleString("ja-JP"),
+      result,
+      remarks,
+      battleOrder: battleOrder, // party-form-containerの順番を保存
+    };
+
+    if (type === "own") {
+      this.savedOwnParties.unshift(saved);
+    } else {
+      this.savedOpponentParties.unshift(saved);
     }
 
-    clearAllParties() {
-        if (confirm('保存されたすべてのパーティを削除しますか？')) {
-            this.savedParties = [];
-            this.saveToStorage();
-            this.renderSavedParties();
-            alert('すべてのパーティを削除しました。');
-        }
+    this.saveToStorage();
+    this.renderSavedParties();
+    alert("保存しました！");
+
+    if (type === "own") {
+      this.ownNameInput.value = "";
+      if (this.ownRemarksInput) this.ownRemarksInput.value = "";
+      this.resetParty("own");
+    } else {
+      this.oppNameInput.value = "";
+      if (this.oppWinCheckbox) this.oppWinCheckbox.checked = false;
+      if (this.oppLossCheckbox) this.oppLossCheckbox.checked = false;
+      if (this.oppRemarksInput) this.oppRemarksInput.value = "";
+      this.resetParty("opponent");
+      this.oppFormContainer.innerHTML = "";
+      this.battleOrder = [];
     }
+  }
 
-    loadParty(id) {
-        const party = this.savedParties.find(p => p.id === id);
-        if (!party) return;
-
-        this.party = JSON.parse(JSON.stringify(party.party));
-        this.partyNameInput.value = party.name || '';
-        if (this.winCheckbox) this.winCheckbox.checked = (party.result === '勝');
-        if (this.lossCheckbox) this.lossCheckbox.checked = (party.result === '敗');
-        if (this.remarksInput) this.remarksInput.value = party.remarks || '';
-        this.renderForm();
-        window.scrollTo(0, 0);
+  resetParty(type) {
+    if (type === "own") {
+      this.ownParty = Array(6)
+        .fill()
+        .map(() => new Pokemon());
+      this.renderOwnForm();
+    } else {
+      this.opponentParty = Array(6)
+        .fill()
+        .map(() => new Pokemon());
+      this.renderOppForm();
     }
+  }
 
-    deleteParty(id) {
-        if (confirm('このパーティを削除しますか？')) {
-            this.savedParties = this.savedParties.filter(p => p.id !== id);
-            this.saveToStorage();
-            this.renderSavedParties();
-        }
+  clearAllData(type) {
+    if (!confirm("すべて削除しますか？")) return;
+    if (type === "own") {
+      this.savedOwnParties = [];
+    } else {
+      this.savedOpponentParties = [];
     }
+    this.saveToStorage();
+    this.renderSavedParties();
+    alert("削除しました！");
+  }
 
-    renderSavedParties() {
-        if (this.savedParties.length === 0) {
-            this.savedPartiesSection.style.display = 'none';
-            return;
-        }
+  loadPartyData(id, type) {
+    const list =
+      type === "own" ? this.savedOwnParties : this.savedOpponentParties;
+    const saved = list.find((p) => p.id === id);
+    if (!saved) return;
 
-        this.savedPartiesSection.style.display = 'block';
-        this.savedPartiesList.innerHTML = '';
+    if (type === "own") {
+      this.ownParty = JSON.parse(JSON.stringify(saved.party));
+      this.ownNameInput.value = saved.name;
+      if (this.ownRemarksInput)
+        this.ownRemarksInput.value = saved.remarks || "";
+      this.renderOwnForm();
+    } else {
+      this.opponentParty = JSON.parse(JSON.stringify(saved.party));
+      this.oppNameInput.value = saved.name;
+      if (this.oppWinCheckbox)
+        this.oppWinCheckbox.checked = saved.result === "勝";
+      if (this.oppLossCheckbox)
+        this.oppLossCheckbox.checked = saved.result === "敗";
+      if (this.oppRemarksInput)
+        this.oppRemarksInput.value = saved.remarks || "";
+      this.renderOppForm();
+      if (saved.battleOrder && saved.battleOrder.length > 0) {
+        this.renderBattleFormContainer(saved.battleOrder);
+      }
+    }
+    window.scrollTo(0, 0);
+  }
 
-        this.savedParties.forEach(savedParty => {
-            const item = document.createElement('div');
-            item.className = 'saved-party-item';
+  deletePartyData(id, type) {
+    if (!confirm("削除しますか？")) return;
+    if (type === "own") {
+      this.savedOwnParties = this.savedOwnParties.filter((p) => p.id !== id);
+    } else {
+      this.savedOpponentParties = this.savedOpponentParties.filter(
+        (p) => p.id !== id,
+      );
+    }
+    this.saveToStorage();
+    this.renderSavedParties();
+  }
 
-            const selectedCount = savedParty.party.filter(p => p.selected).length;
-            const memberNames = savedParty.party.map(p => p.name).filter(n => n).join('、') || 'メンバなし';
+  renderSavedParties() {
+    if (
+      this.savedOwnParties.length === 0 &&
+      this.savedOpponentParties.length === 0
+    ) {
+      this.savedSection.style.display = "none";
+      return;
+    }
+    this.savedSection.style.display = "block";
 
-            item.innerHTML = `
+    // 自分のパーティ
+    this.ownSavedList.innerHTML = "";
+    this.savedOwnParties.forEach((saved) => {
+      const div = document.createElement("div");
+      div.className = "saved-party-item";
+      div.innerHTML = `
                 <div class="saved-party-item-name">
-                    <h3>${this.escapeHtml(savedParty.name)}</h3>
-                    <p class="saved-party-item-time">
-                        ${savedParty.timestamp} ${savedParty.result ? '| ' + this.escapeHtml(savedParty.result) : ''} | ${memberNames}
-                    </p>
-                    ${savedParty.remarks ? `<p class="saved-party-remarks">${this.escapeHtml(savedParty.remarks)}</p>` : ''}
+                    <h3>${this.escapeHtml(saved.name)}</h3>
+                    <p class="saved-party-item-time">${saved.timestamp} ${saved.result ? "| " + saved.result : ""}</p>
+                    ${saved.remarks ? `<p class="saved-party-remarks">${this.escapeHtml(saved.remarks)}</p>` : ""}
                 </div>
                 <div class="saved-party-buttons">
                     <button class="btn btn-small btn-load">読込</button>
                     <button class="btn btn-small btn-delete">削除</button>
                 </div>
             `;
+      div
+        .querySelector(".btn-load")
+        .addEventListener("click", () => this.loadPartyData(saved.id, "own"));
+      div
+        .querySelector(".btn-delete")
+        .addEventListener("click", () => this.deletePartyData(saved.id, "own"));
+      this.ownSavedList.appendChild(div);
+    });
 
-            const loadBtn = item.querySelector('.btn-load');
-            const deleteBtn = item.querySelector('.btn-delete');
+    // 相手のパーティ
+    this.oppSavedList.innerHTML = "";
+    this.savedOpponentParties.forEach((saved) => {
+      const div = document.createElement("div");
+      div.className = "saved-party-item";
+      div.innerHTML = `
+                <div class="saved-party-item-name">
+                    <h3>${this.escapeHtml(saved.name)}</h3>
+                    <p class="saved-party-item-time">${saved.timestamp}</p>
+                    ${saved.remarks ? `<p class="saved-party-remarks">${this.escapeHtml(saved.remarks)}</p>` : ""}
+                </div>
+                <div class="saved-party-buttons">
+                    <button class="btn btn-small btn-load">読込</button>
+                    <button class="btn btn-small btn-delete">削除</button>
+                </div>
+            `;
+      div
+        .querySelector(".btn-load")
+        .addEventListener("click", () =>
+          this.loadPartyData(saved.id, "opponent"),
+        );
+      div
+        .querySelector(".btn-delete")
+        .addEventListener("click", () =>
+          this.deletePartyData(saved.id, "opponent"),
+        );
+      this.oppSavedList.appendChild(div);
+    });
+  }
 
-            loadBtn.addEventListener('click', () => this.loadParty(savedParty.id));
-            deleteBtn.addEventListener('click', () => this.deleteParty(savedParty.id));
+  // 対戦初期化
+  startBattle() {
+    this.collectData("own");
+    this.collectData("opponent");
 
-            this.savedPartiesList.appendChild(item);
+    // 相手のパーティのすべてのポケモンを追加
+    const battlePokemon = [];
+    this.opponentParty.forEach((p, i) => {
+      if (p.name) {
+        battlePokemon.push({ ...p, type: "opponent", idx: i });
+      }
+    });
+
+    // 自分のパーティから選出有無でフィルタリング
+    this.ownParty.forEach((p, i) => {
+      if (p.name && p.selected) {
+        battlePokemon.push({ ...p, type: "own", idx: i });
+      }
+    });
+
+    if (battlePokemon.length === 0) {
+      alert("ポケモンを登録してください");
+      return;
+    }
+
+    // 素早さ(実数値)でソート (降順)
+    battlePokemon.sort((a, b) => (b.actualSpeed || 0) - (a.actualSpeed || 0));
+
+    // battlePokemon を保存（保存時に使用）
+    this.battleOrder = battlePokemon;
+
+    // 相手のformコンテナに相手パーティと自分の選出済みを表示
+    this.renderBattleFormContainer(battlePokemon);
+  }
+
+  // 対戦用にformコンテナに相手と自分のポケモンを表示
+  renderBattleFormContainer(battlePokemon) {
+    this.oppFormContainer.innerHTML = "";
+    this.oppFormContainer.className =
+      "party-form-container battle-form-container";
+
+    battlePokemon.forEach((poke, displayIdx) => {
+      const card = document.createElement("div");
+
+      // プロパティのデフォルト値を設定
+      const pokeName = poke.name || "";
+      const pokeAbility = poke.ability || "";
+      const pokeItem = poke.item || "";
+      const pokeActualSpeed = poke.actualSpeed || 0;
+      const pokeMoves = Array.isArray(poke.moves)
+        ? poke.moves
+        : ["", "", "", ""];
+      const pokeTerasType = poke.terasType || "";
+      const pokeNotes = poke.notes || "";
+      const pokeSelected = poke.selected === true;
+      const pokeLead = poke.lead === true;
+      const pokeType = poke.type || "opponent"; // own または opponent
+
+      card.className = `pokemon-card battle-pokemon ${pokeType} ${pokeSelected ? "selected" : ""}`;
+      card.id = `battle-card-${pokeType}-${poke.idx || displayIdx}`;
+      card.draggable = true;
+      card.dataset.orderIdx = displayIdx;
+      card.dataset.pokeType = pokeType;
+
+      card.innerHTML = `
+        <div class="pokemon-number">
+          <div class="number-and-name">
+            <div class="poke-type-label" style="font-size: 12px; color: ${pokeType === "own" ? "#2e7d32" : "#c62828"};">
+              ${pokeType === "own" ? "【自分】" : "【相手】"}
+            </div>
+            <strong>#${displayIdx + 1}</strong>
+            <input type="text" class="name-input battle-pokemon-name" placeholder="ポケモン名" value="${pokeName}">
+          </div>
+          <div class="header-controls">
+            <label class="small-check"><input type="checkbox" class="battle-sel-check" ${pokeSelected ? "checked" : ""}> 選出</label>
+            <label class="small-check"><input type="checkbox" class="battle-lead-check" ${pokeLead ? "checked" : ""}> 先発</label>
+            <span class="pokemon-toggle-icon collapsed">▼</span>
+          </div>
+        </div>
+        <div class="pokemon-details collapsed">
+          <div class="form-group">
+            <label>特性</label>
+            <input type="text" class="battle-ability" placeholder="特性" value="${pokeAbility}">
+          </div>
+          <div class="form-group">
+            <label>持ち物</label>
+            <input type="text" class="battle-item" placeholder="持ち物" value="${pokeItem}">
+          </div>
+          <div class="form-group">
+            <label>素早さ(実数値)</label>
+            <input type="number" class="battle-speed" placeholder="0" value="${pokeActualSpeed}">
+          </div>
+          <div class="form-group">
+            <label>技</label>
+            <div class="moves-group">
+              ${[0, 1, 2, 3].map((m) => `<div class="form-group" style="margin-bottom:0"><input type="text" class="battle-move" placeholder="技${m + 1}" value="${pokeMoves[m] || ""}"></div>`).join("")}
+            </div>
+          </div>
+          <div class="form-group">
+            <label>テラスタイプ</label>
+            <select class="battle-teras">
+              <option value="">選択</option>
+              <option value="ノーマル" ${pokeTerasType === "ノーマル" ? "selected" : ""}>ノーマル</option>
+              <option value="ほのお" ${pokeTerasType === "ほのお" ? "selected" : ""}>ほのお</option>
+              <option value="みず" ${pokeTerasType === "みず" ? "selected" : ""}>みず</option>
+              <option value="でんき" ${pokeTerasType === "でんき" ? "selected" : ""}>でんき</option>
+              <option value="くさ" ${pokeTerasType === "くさ" ? "selected" : ""}>くさ</option>
+              <option value="こおり" ${pokeTerasType === "こおり" ? "selected" : ""}>こおり</option>
+              <option value="かくとう" ${pokeTerasType === "かくとう" ? "selected" : ""}>かくとう</option>
+              <option value="どく" ${pokeTerasType === "どく" ? "selected" : ""}>どく</option>
+              <option value="じめん" ${pokeTerasType === "じめん" ? "selected" : ""}>じめん</option>
+              <option value="ひこう" ${pokeTerasType === "ひこう" ? "selected" : ""}>ひこう</option>
+              <option value="エスパー" ${pokeTerasType === "エスパー" ? "selected" : ""}>エスパー</option>
+              <option value="むし" ${pokeTerasType === "むし" ? "selected" : ""}>むし</option>
+              <option value="いわ" ${pokeTerasType === "いわ" ? "selected" : ""}>いわ</option>
+              <option value="ゴースト" ${pokeTerasType === "ゴースト" ? "selected" : ""}>ゴースト</option>
+              <option value="ドラゴン" ${pokeTerasType === "ドラゴン" ? "selected" : ""}>ドラゴン</option>
+              <option value="あく" ${pokeTerasType === "あく" ? "selected" : ""}>あく</option>
+              <option value="はがね" ${pokeTerasType === "はがね" ? "selected" : ""}>はがね</option>
+              <option value="フェアリー" ${pokeTerasType === "フェアリー" ? "selected" : ""}>フェアリー</option>
+              <option value="ステラ" ${pokeTerasType === "ステラ" ? "selected" : ""}>ステラ</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>その他</label>
+            <textarea class="battle-notes" placeholder="役割など" rows="3">${pokeNotes}</textarea>
+          </div>
+        </div>
+      `;
+
+      // アコーディオン
+      const header = card.querySelector(".pokemon-number");
+      const details = card.querySelector(".pokemon-details");
+      const icon = card.querySelector(".pokemon-toggle-icon");
+      header.addEventListener("click", () => {
+        details.classList.toggle("collapsed");
+        icon.classList.toggle("collapsed");
+      });
+
+      // ドラッグアンドドロップ
+      card.addEventListener("dragstart", () => {
+        card.classList.add("dragging");
+      });
+      card.addEventListener("dragend", () => {
+        card.classList.remove("dragging");
+        this.oppFormContainer
+          .querySelectorAll(".battle-pokemon")
+          .forEach((item) => {
+            item.classList.remove("drag-over");
+          });
+        // ドラッグ終了時に番号と battleOrder を更新
+        this.updateBattleCardNumbers();
+        this.updateBattleOrderFromDOM();
+      });
+      card.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        card.classList.add("drag-over");
+      });
+      card.addEventListener("dragleave", () => {
+        card.classList.remove("drag-over");
+      });
+      card.addEventListener("drop", (e) => {
+        e.preventDefault();
+        const dragging = this.oppFormContainer.querySelector(".dragging");
+        if (dragging && dragging !== card) {
+          if (
+            parseInt(dragging.dataset.orderIdx) <
+            parseInt(card.dataset.orderIdx)
+          ) {
+            card.parentNode.insertBefore(dragging, card.nextSibling);
+          } else {
+            card.parentNode.insertBefore(dragging, card);
+          }
+        }
+        card.classList.remove("drag-over");
+      });
+
+      // 入力監視（名前と選出・先発のチェック）
+      const updateBattlePokemon = () => {
+        poke.name = card.querySelector(".battle-pokemon-name").value;
+        poke.selected = card.querySelector(".battle-sel-check").checked;
+        poke.lead = card.querySelector(".battle-lead-check").checked;
+        poke.ability = card.querySelector(".battle-ability").value;
+        poke.item = card.querySelector(".battle-item").value;
+        poke.moves = Array.from(card.querySelectorAll(".battle-move")).map(
+          (m) => m.value,
+        );
+        poke.terasType = card.querySelector(".battle-teras").value;
+        poke.notes = card.querySelector(".battle-notes").value;
+        poke.actualSpeed =
+          parseInt(card.querySelector(".battle-speed").value) || 0;
+        card.classList.toggle("selected", poke.selected);
+      };
+
+      card.querySelectorAll("input, select, textarea").forEach((el) => {
+        el.addEventListener("change", updateBattlePokemon);
+        el.addEventListener("input", updateBattlePokemon);
+        if (el.type !== "checkbox") {
+          el.addEventListener("click", (e) => e.stopPropagation());
+        } else {
+          el.addEventListener("click", (e) => {
+            e.stopPropagation();
+            updateBattlePokemon();
+          });
+        }
+      });
+
+      this.oppFormContainer.appendChild(card);
+    });
+  }
+
+  // バトルカード番号を更新
+  updateBattleCardNumbers() {
+    const cards = this.oppFormContainer.querySelectorAll(".battle-pokemon");
+    cards.forEach((card, newIdx) => {
+      const numberElement = card.querySelector(".number-and-name strong");
+      if (numberElement) {
+        numberElement.textContent = `#${newIdx + 1}`;
+      }
+      card.dataset.orderIdx = newIdx;
+    });
+  }
+
+  // バトルカードのDOMから battleOrder を再構築（ドラッグ後に呼び出し）
+  updateBattleOrderFromDOM() {
+    const cards = this.oppFormContainer.querySelectorAll(".battle-pokemon");
+    this.battleOrder = Array.from(cards).map((card) => {
+      return {
+        name: card.querySelector(".battle-pokemon-name")?.value || "",
+        ability: card.querySelector(".battle-ability")?.value || "",
+        item: card.querySelector(".battle-item")?.value || "",
+        terasType: card.querySelector(".battle-teras")?.value || "",
+        notes: card.querySelector(".battle-notes")?.value || "",
+        selected: card.querySelector(".battle-sel-check")?.checked || false,
+        lead: card.querySelector(".battle-lead-check")?.checked || false,
+        actualSpeed: parseInt(card.querySelector(".battle-speed")?.value) || 0,
+        moves: Array.from(card.querySelectorAll(".battle-move")).map(
+          (m) => m.value,
+        ),
+        type:
+          card.dataset.pokeType ||
+          (card.classList.contains("own") ? "own" : "opponent"),
+      };
+    });
+  }
+
+  // デフォルト素早さ計算 (Level 50, 努力値252振り, 性格補正有り)
+  getSpeed(poke) {
+    const baseStats = {
+      ピカチュウ: 90,
+      ギャラドス: 81,
+      ファイアロー: 126,
+      アーマーガア: 67,
+      テツノカイナ: 120,
+      テツノツユハ: 85,
+      テツノボウ: 70,
+      テツノドクガ: 112,
+      テツノブジン: 61,
+    };
+    const base = baseStats[poke.name] || 90;
+    let s = Math.floor((2 * base + 94) * 0.5) + 5;
+    return Math.floor(s * 1.1);
+  }
+
+  renderSpeedOrder(party) {
+    this.speedContainer.innerHTML = "";
+    party.forEach((p, idx) => {
+      const div = document.createElement("div");
+      div.className = `speed-order-item ${p.type}`;
+      div.draggable = true;
+      div.dataset.idx = idx;
+      const actualSpeed = p.actualSpeed || 0;
+      div.innerHTML = `
+                <div class="speed-order-item-info">
+                    <div class="speed-order-item-name">${p.type === "own" ? "【自】" : "【敵】"} ${this.escapeHtml(p.name)}</div>
+                    <div class="speed-order-item-stats">
+                        <span>特性: ${this.escapeHtml(p.ability || "-")}</span>
+                        <span>持ち物: ${this.escapeHtml(p.item || "-")}</span>
+                        <span class="speed-order-item-speed">素早さ: ${actualSpeed}</span>
+                    </div>
+                </div>
+                <div class="speed-order-item-controls">
+                    <input type="number" class="actual-speed" value="${actualSpeed}" placeholder="実値">
+                </div>
+            `;
+
+      // ドラッグアンドドロップ
+      div.addEventListener("dragstart", () => {
+        div.classList.add("dragging");
+      });
+      div.addEventListener("dragend", () => {
+        div.classList.remove("dragging");
+        this.speedContainer
+          .querySelectorAll(".speed-order-item")
+          .forEach((item) => {
+            item.classList.remove("drag-over");
+          });
+        // ドラッグ終了時にbattleOrderを更新
+        this.updateBattleOrder();
+      });
+      div.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        div.classList.add("drag-over");
+      });
+      div.addEventListener("dragleave", () => {
+        div.classList.remove("drag-over");
+      });
+      div.addEventListener("drop", (e) => {
+        e.preventDefault();
+        const dragging = this.speedContainer.querySelector(".dragging");
+        if (dragging && dragging !== div) {
+          if (parseInt(dragging.dataset.idx) < parseInt(div.dataset.idx)) {
+            div.parentNode.insertBefore(dragging, div.nextSibling);
+          } else {
+            div.parentNode.insertBefore(dragging, div);
+          }
+        }
+        div.classList.remove("drag-over");
+      });
+
+      this.speedContainer.appendChild(div);
+    });
+  }
+
+  // battleOrderを更新
+  updateBattleOrder() {
+    const items = this.speedContainer.querySelectorAll(".speed-order-item");
+    this.battleOrder = Array.from(items).map((item, idx) => {
+      const originalIdx = parseInt(item.dataset.idx);
+      const updatedPoke = this.battleOrder[originalIdx];
+      updatedPoke.actualSpeed =
+        parseInt(item.querySelector(".actual-speed").value) || 0;
+      return updatedPoke;
+    });
+  }
+
+  exportCSV(type) {
+    this.collectData(type);
+    const list =
+      type === "own" ? this.savedOwnParties : this.savedOpponentParties;
+
+    let csv =
+      "パーティ名,ポケモン番号,ポケモン名,特性,持ち物,技1,技2,技3,技4,テラスタイプ,先発,素早さ(実数値),その他,選出有無,勝敗,備考\n";
+
+    list.forEach((party) => {
+      party.party.forEach((p, idx) => {
+        const row = [
+          party.name,
+          idx + 1,
+          p.name,
+          p.ability,
+          p.item,
+          p.moves[0],
+          p.moves[1],
+          p.moves[2],
+          p.moves[3],
+          p.terasType,
+          p.lead ? "○" : "",
+          p.actualSpeed || 0,
+          p.notes.replace(/\n/g, " "),
+          p.selected ? "○" : "",
+          party.result || "",
+          (party.remarks || "").replace(/\n/g, " "),
+        ];
+        csv += row.map((cell) => `"${cell}"`).join(",") + "\n";
+      });
+    });
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `${type}-parties-${new Date().toISOString().split("T")[0]}.csv`;
+    link.click();
+    alert("CSVをダウンロードしました！");
+  }
+
+  importCSV(e, type) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const csv = evt.target.result;
+      const lines = csv.trim().split("\n");
+      if (lines.length < 2) {
+        alert("有効なCSVファイルではありません");
+        return;
+      }
+
+      const parties = new Map();
+      for (let i = 1; i < lines.length; i++) {
+        const cells = [];
+        let cur = "",
+          quoted = false;
+        for (let j = 0; j < lines[i].length; j++) {
+          const ch = lines[i][j];
+          if (ch === '"') quoted = !quoted;
+          else if (ch === "," && !quoted) {
+            cells.push(cur);
+            cur = "";
+          } else cur += ch;
+        }
+        cells.push(cur);
+
+        if (cells.length < 11) continue;
+        const pName = cells[0] || `パーティ${i}`;
+        const pIdx = parseInt(cells[1]) - 1;
+        if (pIdx < 0 || pIdx >= 6) continue;
+
+        if (!parties.has(pName)) {
+          parties.set(pName, {
+            party: Array(6)
+              .fill()
+              .map(() => new Pokemon()),
+            result: "",
+            remarks: "",
+          });
+        }
+
+        const p = new Pokemon();
+        p.name = cells[2];
+        p.ability = cells[3];
+        p.item = cells[4];
+        p.moves = [cells[5], cells[6], cells[7], cells[8]];
+        p.terasType = cells[9];
+        p.lead = cells[10] === "○";
+        p.actualSpeed = parseInt(cells[11]) || 0;
+        p.notes = cells[12] || "";
+        p.selected = cells[13] === "○";
+
+        parties.get(pName).party[pIdx] = p;
+        if (type === "opponent") {
+          if (cells.length > 14) parties.get(pName).result = cells[14] || "";
+        }
+        if (cells.length > 15) parties.get(pName).remarks = cells[15] || "";
+      }
+
+      const list =
+        type === "own" ? this.savedOwnParties : this.savedOpponentParties;
+      parties.forEach((v, name) => {
+        list.unshift({
+          id: Date.now() + Math.random(),
+          name,
+          party: v.party,
+          timestamp: new Date().toLocaleString("ja-JP"),
+          result: v.result || "",
+          remarks: v.remarks || "",
         });
-    }
+      });
 
-    exportToCSV() {
-        this.collectFormData();
+      this.saveToStorage();
+      this.renderSavedParties();
+      alert(`${parties.size}個をインポートしました！`);
+    };
+    reader.readAsText(file);
 
-        let csv = 'パーティ名,ポケモン番号,ポケモン名,特性,持ち物,技1,技2,技3,技4,テラスタイプ,その他,選出有無,勝敗,備考\n';
+    if (type === "own") this.ownCsvInput.value = "";
+    else this.oppCsvInput.value = "";
+  }
 
-        this.savedParties.forEach(party => {
-            party.party.forEach((pokemon, index) => {
-                const selected = pokemon.selected ? '○' : '';
-                const row = [
-                    party.name,
-                    index + 1,
-                    pokemon.name,
-                    pokemon.ability,
-                    pokemon.item,
-                    pokemon.moves[0],
-                    pokemon.moves[1],
-                    pokemon.moves[2],
-                    pokemon.moves[3],
-                    pokemon.terasType,
-                    pokemon.notes.replace(/\n/g, ' '),
-                    selected,
-                    party.result || '',
-                    (party.remarks || '').replace(/\n/g, ' ')
-                ];
-                csv += row.map(cell => `"${cell}"`).join(',') + '\n';
-            });
-        });
+  saveToStorage() {
+    localStorage.setItem(
+      "savedOwnParties",
+      JSON.stringify(this.savedOwnParties),
+    );
+    localStorage.setItem(
+      "savedOpponentParties",
+      JSON.stringify(this.savedOpponentParties),
+    );
+  }
 
-        // ダウンロード処理
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        link.setAttribute('href', url);
-        link.setAttribute('download', `pokemon-parties-${new Date().toISOString().split('T')[0]}.csv`);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+  loadSavedParties() {
+    this.savedOwnParties = JSON.parse(
+      localStorage.getItem("savedOwnParties") || "[]",
+    );
+    this.savedOpponentParties = JSON.parse(
+      localStorage.getItem("savedOpponentParties") || "[]",
+    );
+    this.renderSavedParties();
+  }
 
-        alert('CSVをダウンロードしました！');
-    }
-
-    importFromCSV(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const csv = e.target.result;
-                const lines = csv.trim().split('\n');
-                
-                if (lines.length < 2) {
-                    alert('有効なCSVファイルではありません');
-                    return;
-                }
-
-                // ヘッダーをスキップ
-                const currentParties = new Map();
-
-                for (let i = 1; i < lines.length; i++) {
-                    const line = lines[i];
-                    // CSVパース（ダブルクオート対応）
-                    const cells = [];
-                    let current = '';
-                    let inQuotes = false;
-                    
-                    for (let j = 0; j < line.length; j++) {
-                        const char = line[j];
-                        if (char === '"') {
-                            inQuotes = !inQuotes;
-                        } else if (char === ',' && !inQuotes) {
-                            cells.push(current);
-                            current = '';
-                        } else {
-                            current += char;
-                        }
-                    }
-                    cells.push(current);
-
-                    if (cells.length < 12) continue;
-
-                    const partyName = cells[0] || `パーティ${i}`;
-                    const pokemonIndex = parseInt(cells[1]) - 1;
-                    
-                    if (pokemonIndex < 0 || pokemonIndex >= 6) continue;
-
-                    if (!currentParties.has(partyName)) {
-                        currentParties.set(partyName, {
-                            party: Array(6).fill().map(() => new Pokemon()),
-                            result: '',
-                            remarks: ''
-                        });
-                    }
-
-                    const partyObj = currentParties.get(partyName);
-                    partyObj.party[pokemonIndex] = new Pokemon();
-                    partyObj.party[pokemonIndex].name = cells[2];
-                    partyObj.party[pokemonIndex].ability = cells[3];
-                    partyObj.party[pokemonIndex].item = cells[4];
-                    partyObj.party[pokemonIndex].moves = [cells[5], cells[6], cells[7], cells[8]];
-                    partyObj.party[pokemonIndex].terasType = cells[9];
-                    partyObj.party[pokemonIndex].notes = cells[10];
-                    partyObj.party[pokemonIndex].selected = cells[11] === '○';
-                    // optional party-level columns
-                    if (cells.length > 12) {
-                        partyObj.result = cells[12] || partyObj.result;
-                    }
-                    if (cells.length > 13) {
-                        partyObj.remarks = cells[13] || partyObj.remarks;
-                    }
-                }
-
-                // パーティを追加
-                currentParties.forEach((value, name) => {
-                    const savedParty = {
-                        id: Date.now() + Math.random(),
-                        name: name,
-                        party: value.party,
-                        timestamp: new Date().toLocaleString('ja-JP'),
-                        result: value.result || '',
-                        remarks: value.remarks || ''
-                    };
-                    this.savedParties.unshift(savedParty);
-                });
-
-                this.saveToStorage();
-                this.renderSavedParties();
-                alert(`${currentParties.size}個のパーティをインポートしました！`);
-
-            } catch (error) {
-                console.error('CSVインポートエラー:', error);
-                alert('CSVファイルの読み込み中にエラーが発生しました');
-            }
-        };
-        reader.readAsText(file);
-
-        // 次回のために入力をリセット
-        this.csvFileInput.value = '';
-    }
-
-    saveToStorage() {
-        localStorage.setItem('savedParties', JSON.stringify(this.savedParties));
-    }
-
-    loadSavedParties() {
-        const data = localStorage.getItem('savedParties');
-        this.savedParties = data ? JSON.parse(data) : [];
-        this.renderSavedParties();
-    }
-
-    escapeHtml(text) {
-        const map = {
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#039;'
-        };
-        return text.replace(/[&<>"']/g, char => map[char]);
-    }
+  escapeHtml(text) {
+    const map = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;",
+    };
+    return text.replace(/[&<>"']/g, (c) => map[c]);
+  }
 }
 
-// アプリケーション開始
-document.addEventListener('DOMContentLoaded', () => {
-    new PartyApp();
-});
+document.addEventListener("DOMContentLoaded", () => new PartyApp());
