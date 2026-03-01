@@ -497,7 +497,6 @@ class PartyApp {
     if (type === "own") {
       this.ownNameInput.value = "";
       if (this.ownRemarksInput) this.ownRemarksInput.value = "";
-      this.resetParty("own");
     } else {
       this.oppNameInput.value = "";
       if (this.oppWinCheckbox) this.oppWinCheckbox.checked = false;
@@ -1033,13 +1032,27 @@ class PartyApp {
       type === "own" ? this.savedOwnParties : this.savedOpponentParties;
 
     let csv =
-      "パーティ名,ポケモン番号,ポケモン名,特性,持ち物,技1,技2,技3,技4,テラスタイプ,先発,素早さ(実数値),その他,選出有無,勝敗,備考\n";
+      "パーティ名,勝敗,備考,ポケモン番号,ポケモン側,ポケモン名,特性,持ち物,技1,技2,技3,技4,テラスタイプ,先発,素早さ(実数値),その他,選出有無\n";
 
     list.forEach((party) => {
-      party.party.forEach((p, idx) => {
+      // battleOrderがある場合はそれを使用、なければpartyの順序で出力
+      const pokemonList =
+        party.battleOrder && party.battleOrder.length > 0
+          ? party.battleOrder
+          : party.party.map((p, idx) => ({
+              ...p,
+              type: type === "opponent" ? "opponent" : "own",
+              idx,
+            }));
+
+      pokemonList.forEach((p, dispIdx) => {
+        const idx = p.idx || dispIdx;
         const row = [
           party.name,
-          idx + 1,
+          party.result || "",
+          (party.remarks || "").replace(/\n/g, " "),
+          dispIdx + 1,
+          p.type || "opponent",
           p.name,
           p.ability,
           p.item,
@@ -1052,8 +1065,6 @@ class PartyApp {
           p.actualSpeed || 0,
           p.notes.replace(/\n/g, " "),
           p.selected ? "○" : "",
-          party.result || "",
-          (party.remarks || "").replace(/\n/g, " "),
         ];
         csv += row.map((cell) => `"${cell}"`).join(",") + "\n";
       });
@@ -1095,9 +1106,9 @@ class PartyApp {
         }
         cells.push(cur);
 
-        if (cells.length < 11) continue;
+        if (cells.length < 17) continue;
         const pName = cells[0] || `パーティ${i}`;
-        const pIdx = parseInt(cells[1]) - 1;
+        const pIdx = parseInt(cells[3]) - 1;
         if (pIdx < 0 || pIdx >= 6) continue;
 
         if (!parties.has(pName)) {
@@ -1105,27 +1116,30 @@ class PartyApp {
             party: Array(6)
               .fill()
               .map(() => new Pokemon()),
-            result: "",
-            remarks: "",
+            result: cells[1] || "",
+            remarks: cells[2] || "",
+            battleOrder: [],
           });
         }
 
         const p = new Pokemon();
-        p.name = cells[2];
-        p.ability = cells[3];
-        p.item = cells[4];
-        p.moves = [cells[5], cells[6], cells[7], cells[8]];
-        p.terasType = cells[9];
-        p.lead = cells[10] === "○";
-        p.actualSpeed = parseInt(cells[11]) || 0;
-        p.notes = cells[12] || "";
-        p.selected = cells[13] === "○";
+        p.name = cells[5];
+        p.ability = cells[6];
+        p.item = cells[7];
+        p.moves = [cells[8], cells[9], cells[10], cells[11]];
+        p.terasType = cells[12];
+        p.lead = cells[13] === "○";
+        p.actualSpeed = parseInt(cells[14]) || 0;
+        p.notes = cells[15] || "";
+        p.selected = cells[16] === "○";
+        p.type = cells[4] || "opponent";
 
         parties.get(pName).party[pIdx] = p;
-        if (type === "opponent") {
-          if (cells.length > 14) parties.get(pName).result = cells[14] || "";
-        }
-        if (cells.length > 15) parties.get(pName).remarks = cells[15] || "";
+        // battleOrderに追加（対戦順序を保持）
+        parties.get(pName).battleOrder.push({
+          ...p,
+          idx: pIdx,
+        });
       }
 
       const list =
@@ -1138,6 +1152,7 @@ class PartyApp {
           timestamp: new Date().toLocaleString("ja-JP"),
           result: v.result || "",
           remarks: v.remarks || "",
+          battleOrder: v.battleOrder || [],
         });
       });
 
