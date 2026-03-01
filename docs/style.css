@@ -601,6 +601,11 @@ header .subtitle {
   transform: translateY(-2px);
 }
 
+.speed-order-item {
+  touch-action: none;
+  user-select: none;
+}
+
 .speed-order-item.dragging {
   opacity: 0.5;
   transform: scale(0.95);
@@ -858,6 +863,11 @@ header .subtitle {
 
 .battle-own-party .battle-pokemon:hover {
   box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+}
+
+.battle-pokemon {
+  touch-action: none;
+  user-select: none;
 }
 
 .battle-pokemon.dragging {

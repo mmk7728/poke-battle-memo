@@ -29,6 +29,14 @@ class PartyApp {
     this.savedOwnParties = [];
     this.savedOpponentParties = [];
 
+    // タッチドラッグ用の状態管理
+    this.touchDragState = {
+      isDragging: false,
+      dragElement: null,
+      startY: 0,
+      currentY: 0,
+    };
+
     // DOM - 自分のパーティ
     this.ownFormContainer = document.getElementById("ownPartyFormContainer");
     this.ownNameInput = document.getElementById("ownPartyNameInput");
@@ -72,6 +80,77 @@ class PartyApp {
     this.renderForms();
     this.attachTabListeners();
     this.attachEventListeners();
+  }
+
+  // タッチドラッグアンドドロップのセットアップ
+  setupTouchDragDrop(element, container, options = {}) {
+    const {
+      onDragStart = () => {},
+      onDragEnd = () => {},
+      getPosition = (el) => el.parentNode.children.indexOf(el),
+    } = options;
+
+    element.addEventListener(
+      "touchstart",
+      (e) => {
+        this.touchDragState.isDragging = true;
+        this.touchDragState.dragElement = element;
+        this.touchDragState.startY = e.touches[0].clientY;
+        element.classList.add("dragging");
+        onDragStart();
+      },
+      { passive: false },
+    );
+
+    element.addEventListener(
+      "touchmove",
+      (e) => {
+        if (!this.touchDragState.isDragging) return;
+        e.preventDefault();
+
+        this.touchDragState.currentY = e.touches[0].clientY;
+        const allElements = Array.from(
+          container.querySelectorAll(`.${element.className.split(" ")[0]}`),
+        );
+        const draggedIdx = getPosition(element);
+
+        allElements.forEach((el) => {
+          if (el === element) return;
+
+          const elRect = el.getBoundingClientRect();
+          const elMidpoint = elRect.top + elRect.height / 2;
+          const touchY = e.touches[0].clientY;
+
+          if (draggedIdx < getPosition(el)) {
+            // ドラッグ要素が上にあり、下へ移動
+            if (touchY > elMidpoint) {
+              container.insertBefore(element, el.nextSibling);
+            }
+          } else {
+            // ドラッグ要素が下にあり、上へ移動
+            if (touchY < elMidpoint) {
+              container.insertBefore(element, el);
+            }
+          }
+        });
+      },
+      { passive: false },
+    );
+
+    element.addEventListener(
+      "touchend",
+      (e) => {
+        if (!this.touchDragState.isDragging) return;
+
+        this.touchDragState.isDragging = false;
+        element.classList.remove("dragging");
+        container.querySelectorAll(".drag-over").forEach((el) => {
+          el.classList.remove("drag-over");
+        });
+        onDragEnd();
+      },
+      { passive: false },
+    );
   }
 
   // タブ切り替え
@@ -727,6 +806,23 @@ class PartyApp {
         card.classList.remove("drag-over");
       });
 
+      // タッチドラッグアンドドロップのセットアップ
+      this.setupTouchDragDrop(card, this.oppFormContainer, {
+        onDragStart: () => {
+          // タッチドラッグ開始時の処理
+        },
+        onDragEnd: () => {
+          this.updateBattleCardNumbers();
+          this.updateBattleOrderFromDOM();
+        },
+        getPosition: (el) => {
+          const allCards = Array.from(
+            this.oppFormContainer.querySelectorAll(".battle-pokemon"),
+          );
+          return allCards.indexOf(el);
+        },
+      });
+
       // 入力監視（名前と選出・先発のチェック）
       const updateBattlePokemon = () => {
         poke.name = card.querySelector(".battle-pokemon-name").value;
@@ -868,6 +964,22 @@ class PartyApp {
           }
         }
         div.classList.remove("drag-over");
+      });
+
+      // タッチドラッグアンドドロップのセットアップ
+      this.setupTouchDragDrop(div, this.speedContainer, {
+        onDragStart: () => {
+          // タッチドラッグ開始時の処理
+        },
+        onDragEnd: () => {
+          this.updateBattleOrder();
+        },
+        getPosition: (el) => {
+          const allItems = Array.from(
+            this.speedContainer.querySelectorAll(".speed-order-item"),
+          );
+          return allItems.indexOf(el);
+        },
       });
 
       this.speedContainer.appendChild(div);
