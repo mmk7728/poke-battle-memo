@@ -225,7 +225,7 @@ class PartyApp {
                 </div>
                 <div class="header-controls">
                     <label class="small-check"><input type="checkbox" id="sel-${type}-${index}" ${poke.selected ? "checked" : ""}> 選出</label>
-                    <label class="small-check"><input type="checkbox" id="lead-${type}-${index}" ${poke.lead ? "checked" : ""}> 先発</label>
+                    <label class="small-check"><input type="checkbox" id="lead-${type}-${index}" ${poke.lead ? "checked" : ""} ${!poke.selected ? "disabled" : ""}> 先発</label>
                     <span class="pokemon-toggle-icon collapsed">▼</span>
                 </div>
             </div>
@@ -290,6 +290,9 @@ class PartyApp {
     });
 
     // 入力監視
+    const selCheckbox = card.querySelector(`#sel-${type}-${index}`);
+    const leadCheckbox = card.querySelector(`#lead-${type}-${index}`);
+
     const updateParty = () => {
       poke.name = card.querySelector(`#name-${type}-${index}`).value;
       poke.ability = card.querySelector(`#abil-${type}-${index}`).value;
@@ -299,10 +302,20 @@ class PartyApp {
       );
       poke.terasType = card.querySelector(`#teras-${type}-${index}`).value;
       poke.notes = card.querySelector(`#note-${type}-${index}`).value;
-      poke.selected = card.querySelector(`#sel-${type}-${index}`).checked;
-      poke.lead = card.querySelector(`#lead-${type}-${index}`).checked;
+      poke.selected = selCheckbox.checked;
+      poke.lead = leadCheckbox.checked;
       poke.actualSpeed =
         parseInt(card.querySelector(`#speed-${type}-${index}`).value) || 0;
+
+      // 選出チェックが外れたら先発をdisableにする
+      if (!poke.selected) {
+        leadCheckbox.disabled = true;
+        leadCheckbox.checked = false;
+        poke.lead = false;
+      } else {
+        leadCheckbox.disabled = false;
+      }
+
       card.classList.toggle("selected", poke.selected);
     };
 
@@ -697,7 +710,7 @@ class PartyApp {
         <div class="pokemon-number">
           <div class="number-and-name">
             <div class="poke-type-label" style="font-size: 12px; color: ${pokeType === "own" ? "#2e7d32" : "#c62828"};">
-              ${pokeType === "own" ? "【自分】" : "【相手】"}
+              ${pokeType === "own" ? "【自】" : "【敵】"}
             </div>
             <strong>#${displayIdx + 1}</strong>
             <input type="text" class="name-input battle-pokemon-name" placeholder="ポケモン名" value="${pokeName}">
@@ -824,10 +837,13 @@ class PartyApp {
       });
 
       // 入力監視（名前と選出・先発のチェック）
+      const selCheckbox = card.querySelector(".battle-sel-check");
+      const leadCheckbox = card.querySelector(".battle-lead-check");
+
       const updateBattlePokemon = () => {
         poke.name = card.querySelector(".battle-pokemon-name").value;
-        poke.selected = card.querySelector(".battle-sel-check").checked;
-        poke.lead = card.querySelector(".battle-lead-check").checked;
+        poke.selected = selCheckbox.checked;
+        poke.lead = leadCheckbox.checked;
         poke.ability = card.querySelector(".battle-ability").value;
         poke.item = card.querySelector(".battle-item").value;
         poke.moves = Array.from(card.querySelectorAll(".battle-move")).map(
@@ -837,8 +853,21 @@ class PartyApp {
         poke.notes = card.querySelector(".battle-notes").value;
         poke.actualSpeed =
           parseInt(card.querySelector(".battle-speed").value) || 0;
-        card.classList.toggle("selected", poke.selected);
+
+        // 選出チェックが外れたら先発をdisableにする
+        if (!poke.selected) {
+          leadCheckbox.disabled = true;
+          leadCheckbox.checked = false;
+          poke.lead = false;
+        } else {
+          leadCheckbox.disabled = false;
+        }
       };
+
+      // 選出チェックボックスの初期状態を反映
+      if (!selCheckbox.checked) {
+        leadCheckbox.disabled = true;
+      }
 
       card.querySelectorAll("input, select, textarea").forEach((el) => {
         el.addEventListener("change", updateBattlePokemon);

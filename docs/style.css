@@ -854,20 +854,37 @@ header .subtitle {
 }
 
 /* 対戦用ポケモン表示スタイル */
-.battle-own-party .battle-pokemon {
-  border: 2px solid #4caf50;
-  background-color: #f0f8f0;
-  cursor: grab;
-  transition: all 0.2s ease;
-}
-
-.battle-own-party .battle-pokemon:hover {
-  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
-}
 
 .battle-pokemon {
   touch-action: none;
   user-select: none;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+  background: white;
+  cursor: grab;
+  transition: all 0.2s ease;
+}
+
+/* 自分のポケモン */
+.battle-pokemon.own {
+  border: 2px solid #4caf50;
+  background-color: #f0f8f0;
+}
+
+.battle-pokemon.own:hover {
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+}
+
+/* 相手のポケモン */
+.battle-pokemon.opponent {
+  border: 2px solid #ff6b6b;
+  background-color: #fff0f0;
+}
+
+.battle-pokemon.opponent:hover {
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
 }
 
 .battle-pokemon.dragging {
@@ -886,4 +903,10 @@ header .subtitle {
 .pokemon-name {
   font-weight: 600;
   color: #333;
+}
+
+/* 先発チェックボックスが非活性の時のスタイル */
+input[type="checkbox"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
